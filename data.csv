@@ -1,0 +1,6 @@
+General Environment,Specific Condition,Exposure Class,Min f'c (MPa)
+Above-ground exterior,Inland non-industrial,B1,32
+Above-ground exterior,Near-coastal,B1,32
+Above-ground exterior,Coastal,B2,40
+In ground,Non-aggressive soils,A,20
+In ground,Aggressive soils,B2,40
