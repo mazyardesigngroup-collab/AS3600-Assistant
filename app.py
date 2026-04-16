@@ -2,59 +2,69 @@ import streamlit as st
 import pandas as pd
 import google.generativeai as genai
 
-# Page Configuration
-st.set_page_config(page_title="AS3600 AI Assistant", layout="centered")
+# تنظیمات صفحه
+st.set_page_config(page_title="AS3600 Durability AI Assistant", page_icon="🛡️")
 
+# --- تنظیم کلید API به صورت مستقیم ---
+api_key = "AQ.Ab8RN6K5tlhID9PX3L3S0VeOz74eO6_Qm9coMixMfVEbNZQiNw"
+genai.configure(api_key=api_key)
+# -----------------------------------
+
+# عنوان و توضیحات
 st.title("🛡️ AS3600 Durability AI Assistant")
 st.write("Ask me anything about concrete durability requirements (AS3600 - Section 4)!")
-st.divider()
 
-# Load API Key from Streamlit Secrets
-try:
-    api_key = st.secrets["GOOGLE_API_KEY"]
-    genai.configure(api_key=api_key)
-except KeyError:
-    st.error("Error: GOOGLE_API_KEY not found in Streamlit Secrets!")
-    st.stop()
-
-# Load CSV Data
+# بارگذاری فایل CSV
 @st.cache_data
 def load_data():
-    return pd.read_csv("data.csv")
+    try:
+        df = pd.read_csv("data.csv")
+        return df
+    except Exception as e:
+        return None
 
-try:
-    df = load_data()
-    
-    # User Input Section
-    user_question = st.text_input("Enter your question (e.g., 'What is the exposure classification for a coastal area?'):")
+df = load_data()
 
-    if st.button("Ask AI 🧠"):
-        if not user_question:
-            st.warning("⚠️ Please enter a question first.")
-        else:
-            model = genai.GenerativeModel('gemini-1.5-flash')
+if df is None:
+    st.error("⚠️ Error: 'data.csv' file not found! Please make sure it is uploaded to GitHub.")
+else:
+    # نمایش پیش‌نمایش دیتا (اختیاری)
+    with st.expander("View Database"):
+        st.dataframe(df)
 
-            # Create Prompt with Context
-            context = df.to_string()
-            prompt = f"""
-            You are an expert structural engineering assistant specializing in the Australian standard AS3600.
-            Using the table data provided below, give a precise and accurate answer to the user's question.
-            If the answer cannot be found in the provided table, clearly state that you don't have enough information based on the current data.
-            Provide your answer in professional, clear engineering English.
+    # کادر دریافت سوال از کاربر
+    user_question = st.chat_input("Ask your question here...")
 
-            Table Data:
-            {context}
+    if user_question:
+        # نمایش سوال کاربر
+        with st.chat_message("user"):
+            st.write(user_question)
 
-            User Question: {user_question}
-            """
-
-            # Show a loading spinner while waiting for the response
-            with st.spinner("Analyzing AS3600 standard... ⏳"):
-                response = model.generate_content(prompt)
-                st.success("Response:")
-                st.info(response.text)
-
-except FileNotFoundError:
-    st.error("Error: 'data.csv' not found! Make sure it is located in the same directory as app.py.")
-except Exception as e:
-    st.error(f"System Error: {e}")
+        # ارسال به هوش مصنوعی و نمایش جواب
+        with st.chat_message("assistant"):
+            with st.spinner("Analyzing data..."):
+                try:
+                    # تبدیل اطلاعات فایل اکسل/CSV به متن برای هوش مصنوعی
+                    data_context = df.to_string(index=False)
+                    
+                    # ساخت پرامپت (دستور) برای جمنای
+                    prompt = f"""
+                    You are an expert structural engineer assisting with AS3600 (Concrete Structures Standard - Durability Section).
+                    Based ONLY on the following data table, please answer the user's question accurately.
+                    
+                    Data Table:
+                    {data_context}
+                    
+                    User Question: {user_question}
+                    """
+                    
+                    # فراخوانی مدل
+                    model = genai.GenerativeModel("gemini-1.5-flash")
+                    response = model.generate_content(prompt)
+                    
+                    # نمایش جواب
+                    st.write(response.text)
+                
+                except Exception as e:
+                    st.error(f"❌ API Error: {e}")
+                    st.warning("لطفاً بررسی کنید که آیا API Key شما برای Google Gemini معتبر است یا خیر.")
