@@ -1,5 +1,6 @@
-   streamlit
-   pandas
-   google-generativeai
+streamlit
+pandas
+requests
+
 
 
