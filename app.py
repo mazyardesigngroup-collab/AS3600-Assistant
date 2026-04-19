@@ -2,19 +2,16 @@ import streamlit as st
 import pandas as pd
 import requests
 
-# تنظیمات صفحه
 st.set_page_config(page_title="AS3600 Durability AI Assistant", page_icon="🛡️")
 
-# --- تنظیم کلید API به صورت مستقیم ---
+# گرفتن کلید از سکرت‌ها
 api_key = st.secrets["GOOGLE_API_KEY"]
-genai.configure(api_key=api_key)
-# -----------------------------------
+url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
 
-# عنوان و توضیحات
 st.title("🛡️ AS3600 Durability AI Assistant")
 st.write("Ask me anything about concrete durability requirements (AS3600 - Section 4)!")
 
-# بارگذاری فایل CSV
+# --- (کدهای مربوط به لود کردن فایل data.csv را اینجا نگه دارید) ---
 @st.cache_data
 def load_data():
     try:
@@ -26,45 +23,25 @@ def load_data():
 df = load_data()
 
 if df is None:
-    st.error("⚠️ Error: 'data.csv' file not found! Please make sure it is uploaded to GitHub.")
-else:
-    # نمایش پیش‌نمایش دیتا (اختیاری)
-    with st.expander("View Database"):
-        st.dataframe(df)
+    st.error("⚠️ Error: 'data.csv' file not found!")
+# ------------------------------------------------------------------
 
-    # کادر دریافت سوال از کاربر
-    user_question = st.chat_input("Ask your question here...")
+user_input = st.text_input("سوال خود را بپرسید:")
 
-    if user_question:
-        # نمایش سوال کاربر
-        with st.chat_message("user"):
-            st.write(user_question)
-
-        # ارسال به هوش مصنوعی و نمایش جواب
-        with st.chat_message("assistant"):
-            with st.spinner("Analyzing data..."):
-                try:
-                    # تبدیل اطلاعات فایل اکسل/CSV به متن برای هوش مصنوعی
-                    data_context = df.to_string(index=False)
-                    
-                    # ساخت پرامپت (دستور) برای جمنای
-                    prompt = f"""
-                    You are an expert structural engineer assisting with AS3600 (Concrete Structures Standard - Durability Section).
-                    Based ONLY on the following data table, please answer the user's question accurately.
-                    
-                    Data Table:
-                    {data_context}
-                    
-                    User Question: {user_question}
-                    """
-                    
-                    # فراخوانی مدل
-                    model = genai.GenerativeModel("gemini-1.5-flash")
-                    response = model.generate_content(prompt)
-                    
-                    # نمایش جواب
-                    st.write(response.text)
-                
-                except Exception as e:
-                    st.error(f"❌ API Error: {e}")
-                    st.warning("لطفاً بررسی کنید که آیا API Key شما برای Google Gemini معتبر است یا خیر.")
+if st.button("ارسال"):
+    if user_input:
+        # ارسال درخواست مستقیم به API گوگل
+        payload = {
+            "contents": [{"parts": [{"text": user_input}]}]
+        }
+        headers = {"Content-Type": "application/json"}
+        
+        response = requests.post(url, headers=headers, json=payload)
+        
+        if response.status_code == 200:
+            result = response.json()
+            text_response = result["candidates"][0]["content"]["parts"][0]["text"]
+            st.success(text_response)
+        else:
+            st.error(f"خطا در ارتباط با سرور: {response.status_code}")
+            st.write(response.json())
