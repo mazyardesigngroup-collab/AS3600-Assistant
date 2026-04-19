@@ -1,13 +1,14 @@
 import streamlit as st
 import pandas as pd
-import requests
+from groq import Groq
 
 # تنظیمات صفحه
 st.set_page_config(page_title="AS3600 Durability AI Assistant", page_icon="🛡️")
 
-# گرفتن کلید از سکرت‌ها و تنظیم URL
-api_key = st.secrets["GOOGLE_API_KEY"]
-url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+# گرفتن کلید از سکرت‌ها و ساخت کلاینت Groq
+# مطمئن شوید در تنظیمات Streamlit کلید GROQ_API_KEY را وارد کرده‌اید
+api_key = st.secrets["GROQ_API_KEY"]
+client = Groq(api_key=api_key)
 
 st.title("🛡️ AS3600 Durability AI Assistant")
 st.write("Ask me anything about concrete durability requirements (AS3600 - Section 4)!")
@@ -31,12 +32,15 @@ with st.expander("View Database"):
 
 # مقداردهی اولیه برای تاریخچه چت
 if "messages" not in st.session_state:
-    st.session_state.messages = []
+    st.session_state.messages = [
+        {"role": "system", "content": "You are a helpful structural engineering assistant specializing in AS3600 concrete durability requirements."}
+    ]
 
-# نمایش پیام‌های قبلی
+# نمایش پیام‌های قبلی (به جز پیام سیستم)
 for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+    if message["role"] != "system":
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
 # دریافت ورودی کاربر با ظاهر چت
 if prompt := st.chat_input("Ask your question here..."):
@@ -45,26 +49,20 @@ if prompt := st.chat_input("Ask your question here..."):
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # پردازش و دریافت جواب از هوش مصنوعی
+    # پردازش و دریافت جواب از هوش مصنوعی Groq (مدل Llama 3)
     with st.chat_message("assistant"):
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}]
-        }
-        headers = {"Content-Type": "application/json"}
-        
         try:
-            response = requests.post(url, headers=headers, json=payload)
+            chat_completion = client.chat.completions.create(
+                messages=st.session_state.messages,
+                model="llama3-8b-8192", # شما می‌توانید از llama3-70b-8192 هم استفاده کنید
+                temperature=0.5,
+            )
             
-            if response.status_code == 200:
-                result = response.json()
-                text_response = result["candidates"][0]["content"]["parts"][0]["text"]
-                st.markdown(text_response)
-                # ذخیره جواب در تاریخچه
-                st.session_state.messages.append({"role": "assistant", "content": text_response})
-            else:
-                error_msg = f"API Error: {response.status_code}"
-                st.error(error_msg)
-                st.write(response.json())
-                st.session_state.messages.append({"role": "assistant", "content": error_msg})
+            text_response = chat_completion.choices[0].message.content
+            st.markdown(text_response)
+            
+            # ذخیره جواب در تاریخچه
+            st.session_state.messages.append({"role": "assistant", "content": text_response})
+            
         except Exception as e:
-            st.error(f"Connection Error: {e}")
+            st.error(f"⚠️ Error communicating with Groq: {e}")
