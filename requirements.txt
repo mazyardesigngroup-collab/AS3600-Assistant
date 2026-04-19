@@ -1,4 +1,4 @@
 streamlit
 pandas
-google-generativeai
+oogle-generativeai>=0.7.0
 
