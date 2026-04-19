@@ -6,7 +6,10 @@ from groq import Groq
 st.set_page_config(page_title="AS3600 Durability AI Assistant", page_icon="🛡️")
 
 # گرفتن کلید از سکرت‌ها و ساخت کلاینت Groq
-# مطمئن شوید در تنظیمات Streamlit کلید GROQ_API_KEY را وارد کرده‌اید
+if "GROQ_API_KEY" not in st.secrets:
+    st.error("کلید GROQ_API_KEY در فایل secrets تنظیم نشده است!")
+    st.stop()
+
 api_key = st.secrets["GROQ_API_KEY"]
 client = Groq(api_key=api_key)
 
@@ -22,6 +25,14 @@ def load_data():
     except Exception as e:
         return None
 
+# تابع برای تبدیل دیتافریم به متن جهت ارسال به مدل
+@st.cache_data
+def get_csv_text():
+    df = load_data()
+    if df is not None:
+        return df.to_csv(index=False)
+    return ""
+
 # بازگرداندن بخش View Database
 with st.expander("View Database"):
     df = load_data()
@@ -30,11 +41,31 @@ with st.expander("View Database"):
     else:
         st.error("⚠️ Error: 'data.csv' file not found!")
 
+# آماده‌سازی دیتابیس متنی
+csv_data_text = get_csv_text()
+
+# تعریف System Prompt بسیار سخت‌گیرانه
+SYSTEM_PROMPT = f"""
+You are an expert structural engineering assistant specializing in AS3600. 
+Below is the strictly provided database containing durability requirements.
+
+--- START OF DATABASE ---
+{csv_data_text}
+--- END OF DATABASE ---
+
+STRICT INSTRUCTIONS:
+1. You MUST answer the user's questions USING ONLY the information in the database above.
+2. If the answer cannot be found directly in the provided database, you MUST refuse to answer and reply EXACTLY with:
+"I don't know. My information is strictly limited to the provided database."
+3. DO NOT use any of your pre-existing knowledge. DO NOT guess. DO NOT provide data from outside this CSV text.
+4. If you output any math formulas or variables, ALWAYS use $...$ or $$...$$ delimiters.
+"""
+
 # مقداردهی اولیه برای تاریخچه چت
 if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "system", "content": "You are a helpful structural engineering assistant specializing in AS3600 concrete durability requirements."}
-    ]
+    st.session_state.messages = []
+    # پیام سیستم (پنهان از کاربر) را به عنوان اولین پیام اضافه می‌کنیم
+    st.session_state.messages.append({"role": "system", "content": SYSTEM_PROMPT})
 
 # نمایش پیام‌های قبلی (به جز پیام سیستم)
 for message in st.session_state.messages:
@@ -45,17 +76,18 @@ for message in st.session_state.messages:
 # دریافت ورودی کاربر با ظاهر چت
 if prompt := st.chat_input("Ask your question here..."):
     # نمایش پیام کاربر
-    st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
+        
+    st.session_state.messages.append({"role": "user", "content": prompt})
 
-    # پردازش و دریافت جواب از هوش مصنوعی Groq (مدل Llama 3)
+    # پردازش و دریافت جواب از هوش مصنوعی Groq
     with st.chat_message("assistant"):
         try:
             chat_completion = client.chat.completions.create(
                 messages=st.session_state.messages,
-                model="llama-3.3-70b-versatile", # شما می‌توانید از llama3-70b-8192 هم استفاده کنید
-                temperature=0.5,
+                model="llama-3.3-70b-versatile",
+                temperature=0.0, # مهم: تنظیم روی صفر برای جلوگیری از تولید اطلاعات خارج از فایل
             )
             
             text_response = chat_completion.choices[0].message.content
