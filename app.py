@@ -6,7 +6,7 @@ import google.generativeai as genai
 st.set_page_config(page_title="AS3600 Durability AI Assistant", page_icon="🛡️")
 
 # --- تنظیم کلید API به صورت مستقیم ---
-api_key = "AIzaSyCdzzxJW-RUS9GbKhU_fTPq-loWEHQd8ZU"
+api_key = st.secrets["GOOGLE_API_KEY"]
 genai.configure(api_key=api_key)
 # -----------------------------------
 
