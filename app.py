@@ -54,7 +54,7 @@ if prompt := st.chat_input("Ask your question here..."):
         try:
             chat_completion = client.chat.completions.create(
                 messages=st.session_state.messages,
-                model="llama3-8b-8192", # شما می‌توانید از llama3-70b-8192 هم استفاده کنید
+                model="llama-3.3-70b-versatile", # شما می‌توانید از llama3-70b-8192 هم استفاده کنید
                 temperature=0.5,
             )
             
