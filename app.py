@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import google.generativeai as genai
+import requests
 
 # تنظیمات صفحه
 st.set_page_config(page_title="AS3600 Durability AI Assistant", page_icon="🛡️")
